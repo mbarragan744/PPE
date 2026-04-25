@@ -3,3 +3,4 @@ ultralytics
 torch
 pillow
 opencv-python-headless
+requests
