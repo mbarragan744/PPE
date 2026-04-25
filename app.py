@@ -7,8 +7,8 @@ import os
 from ultralytics import YOLO
 
 # Configuración
-st.set_page_config(page_title="Detector YOLO", layout="centered")
-st.title("🧠 Detección de objetos con YOLO (best.pt)")
+st.set_page_config(page_title="Detector PPE", layout="centered")
+st.title("🦺 Evaluación de Uso de PPE")
 
 # Cargar modelo
 @st.cache_resource
@@ -17,7 +17,25 @@ def load_model():
 
 model = load_model()
 
-# -------- FUNCION PARA PROCESAR IMAGEN --------
+# -------- FUNCIÓN PARA EVALUAR PPE --------
+def evaluar_ppe(detecciones, nombres_clases):
+    etiquetas = [nombres_clases[int(box.cls[0])] for box in detecciones]
+
+    tiene_casco = "helmet" in etiquetas
+    tiene_chaleco = "vest" in etiquetas
+    persona = "person" in etiquetas
+
+    if persona:
+        if tiene_casco and tiene_chaleco:
+            return "✅ PPE COMPLETO", "green"
+        elif tiene_casco or tiene_chaleco:
+            return "⚠️ PPE INCOMPLETO", "orange"
+        else:
+            return "❌ SIN PPE", "red"
+    else:
+        return "ℹ️ No se detecta persona", "blue"
+
+# -------- PROCESAMIENTO --------
 def procesar_imagen(image):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
         image.save(tmp.name)
@@ -28,26 +46,38 @@ def procesar_imagen(image):
 
     st.image(res_plotted, caption="Resultado", use_column_width=True)
 
-    st.subheader("📊 Detecciones:")
     boxes = results[0].boxes
+    nombres_clases = model.names
+
+    # Mostrar detecciones
+    st.subheader("📊 Detecciones:")
+    etiquetas = []
+
     if boxes is not None:
         for box in boxes:
             cls_id = int(box.cls[0])
             conf = float(box.conf[0])
-            label = model.names[cls_id]
+            label = nombres_clases[cls_id]
+            etiquetas.append(label)
             st.write(f"**{label}** - Confianza: {conf:.2f}")
     else:
         st.write("No se detectaron objetos.")
 
+    # -------- RESULTADO FINAL PPE --------
+    resultado, color = evaluar_ppe(boxes if boxes else [], nombres_clases)
+
+    st.markdown("## 🧾 Resultado final:")
+    st.markdown(f"<h2 style='color:{color}'>{resultado}</h2>", unsafe_allow_html=True)
+
     os.remove(temp_path)
 
-# -------- OPCIONES DE ENTRADA --------
+# -------- OPCIONES --------
 opcion = st.radio(
-    "Selecciona cómo quieres ingresar la imagen:",
+    "Selecciona cómo ingresar la imagen:",
     ("📁 Subir imagen", "🌐 URL", "📷 Cámara")
 )
 
-# -------- 1. SUBIR IMAGEN --------
+# -------- SUBIR --------
 if opcion == "📁 Subir imagen":
     uploaded_file = st.file_uploader("Sube una imagen", type=["jpg", "jpeg", "png"])
     
@@ -58,7 +88,7 @@ if opcion == "📁 Subir imagen":
         if st.button("🔍 Detectar"):
             procesar_imagen(image)
 
-# -------- 2. URL --------
+# -------- URL --------
 elif opcion == "🌐 URL":
     url = st.text_input("Pega el link de la imagen")
 
@@ -72,15 +102,18 @@ elif opcion == "🌐 URL":
                 procesar_imagen(image)
 
         except:
-            st.error("No se pudo cargar la imagen desde la URL.")
+            st.error("No se pudo cargar la imagen.")
 
-# -------- 3. CÁMARA --------
+# -------- CÁMARA --------
 elif opcion == "📷 Cámara":
     camera_image = st.camera_input("Toma una foto")
 
     if camera_image is not None:
         image = Image.open(camera_image)
         st.image(image, caption="Imagen capturada", use_column_width=True)
+
+        if st.button("🔍 Detectar"):
+            procesar_imagen(image)
 
         if st.button("🔍 Detectar"):
             procesar_imagen(image)
