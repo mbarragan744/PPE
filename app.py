@@ -41,6 +41,10 @@ def evaluar_ppe(detecciones, nombres_clases):
 # ---------------- PROCESAR IMAGEN ----------------
 def procesar_imagen(image):
     with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp:
+        # Convertir a RGB si tiene transparencia
+        if image.mode in ("RGBA", "P"):
+            image = image.convert("RGB")
+        
         image.save(tmp.name)
         temp_path = tmp.name
 
